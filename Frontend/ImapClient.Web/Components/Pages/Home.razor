@@ -1,0 +1,355 @@
+﻿@page "/"
+@rendermode InteractiveServer
+
+@inject MailApiClient MailApi
+
+<PageTitle>IMAP Mail Dashboard</PageTitle>
+
+<div class="mail-shell">
+	<section class="hero-card">
+		<div>
+			<p class="eyebrow">Outlook 365 IMAP</p>
+			<h1>Manage mail without leaving Blazor.</h1>
+			<p class="hero-copy">Connect to Microsoft 365 over IMAP, browse folders, inspect messages, and run read, unread, delete, or move actions from a focused dashboard.</p>
+		</div>
+		<div class="hero-status">
+			<span class="status-pill @(IsBusy ? "busy" : "ready")">@(IsBusy ? "Working" : "Ready")</span>
+			<span>@StatusMessage</span>
+		</div>
+	</section>
+
+	<section class="config-grid">
+		<EditForm Model="Connection" OnValidSubmit="LoadFoldersAsync" class="config-card">
+			<DataAnnotationsValidator />
+			<h2>Connection</h2>
+			<div class="field-grid">
+				<label>
+					<span>API base URL</span>
+					<InputText class="input" @bind-Value="ApiBaseUrl" />
+				</label>
+				<label>
+					<span>IMAP host</span>
+					<InputText class="input" @bind-Value="Connection.Host" />
+				</label>
+				<label>
+					<span>Port</span>
+					<InputNumber class="input" @bind-Value="Connection.Port" />
+				</label>
+				<label>
+					<span>Username</span>
+					<InputText class="input" @bind-Value="Connection.Username" />
+				</label>
+				<label>
+					<span class="checkbox-row"><InputCheckbox @bind-Value="Connection.UseSsl" /> Use SSL</span>
+				</label>
+				<label>
+					<span class="checkbox-row"><InputCheckbox @bind-Value="Connection.UseOAuth2" /> Use OAuth2</span>
+				</label>
+				@if (Connection.UseOAuth2)
+				{
+					<label class="full-width">
+						<span>Access token</span>
+						<InputText class="input" @bind-Value="Connection.AccessToken" />
+					</label>
+				}
+				else
+				{
+					<label class="full-width">
+						<span>Password</span>
+						<InputText type="password" class="input" @bind-Value="Connection.Password" />
+					</label>
+				}
+			</div>
+			<div class="button-row">
+				<button class="primary-button" type="submit" disabled="@IsBusy">Load folders</button>
+				<button class="ghost-button" type="button" @onclick="ReloadMessagesAsync" disabled="@IsBusy || string.IsNullOrWhiteSpace(SelectedFolderName)">Refresh messages</button>
+			</div>
+		</EditForm>
+
+		<section class="config-card mailbox-card">
+			<div class="card-heading">
+				<h2>Folders</h2>
+				<span>@Folders.Count folder(s)</span>
+			</div>
+			<div class="folder-grid">
+				@foreach (var folder in Folders)
+				{
+					<button class="folder-chip @(string.Equals(folder.Name, SelectedFolderName, StringComparison.OrdinalIgnoreCase) ? "active" : string.Empty)" @onclick="() => SelectFolderAsync(folder.Name)">
+						<strong>@folder.DisplayName</strong>
+						<span>@folder.UnreadCount unread</span>
+					</button>
+				}
+			</div>
+		</section>
+	</section>
+
+	<section class="mail-grid">
+		<section class="config-card list-card">
+			<div class="card-heading">
+				<h2>@(string.IsNullOrWhiteSpace(SelectedFolderName) ? "Messages" : SelectedFolderName)</h2>
+				<span>@Messages.Count message(s)</span>
+			</div>
+
+			@if (Messages.Count == 0)
+			{
+				<p class="empty-state">No messages loaded yet.</p>
+			}
+			else
+			{
+				<div class="message-list">
+					@foreach (var message in Messages)
+					{
+						<article class="message-row @(SelectedMessageId == message.UniqueId ? "selected" : string.Empty)" @onclick="() => SelectMessageAsync(message)">
+							<div class="message-row-top">
+								<strong>@message.Subject</strong>
+								<span>@FormatDate(message.DateReceived)</span>
+							</div>
+							<div class="message-meta">@message.From</div>
+							<p>@message.Preview</p>
+							<div class="message-actions">
+								<button type="button" @onclick:stopPropagation="true" @onclick="() => MarkReadAsync(message)">Read</button>
+								<button type="button" @onclick:stopPropagation="true" @onclick="() => MarkUnreadAsync(message)">Unread</button>
+								<button type="button" @onclick:stopPropagation="true" @onclick="() => DeleteAsync(message)">Delete</button>
+							</div>
+						</article>
+					}
+				</div>
+			}
+		</section>
+
+		<section class="config-card detail-card">
+			<div class="card-heading">
+				<h2>Message details</h2>
+				<span>@(SelectedMessage?.From ?? "Nothing selected")</span>
+			</div>
+
+			@if (SelectedMessage is null)
+			{
+				<p class="empty-state">Select a message to inspect its content.</p>
+			}
+			else
+			{
+				<div class="detail-stack">
+					<div>
+						<div class="detail-label">Subject</div>
+						<div>@SelectedMessage.Subject</div>
+					</div>
+					<div>
+						<div class="detail-label">From</div>
+						<div>@SelectedMessage.From</div>
+					</div>
+					<div>
+						<div class="detail-label">To</div>
+						<div>@SelectedMessage.To</div>
+					</div>
+					<div>
+						<div class="detail-label">Date</div>
+						<div>@FormatDate(SelectedMessage.DateReceived)</div>
+					</div>
+					<div class="move-row">
+						<label>
+							<span>Move to folder</span>
+							<InputText class="input" @bind-Value="MoveFolderName" placeholder="Archive" />
+						</label>
+						<button class="primary-button" type="button" @onclick="MoveSelectedAsync">Move</button>
+					</div>
+					<div class="body-panel">
+						<div class="detail-label">Body</div>
+						<pre>@(string.IsNullOrWhiteSpace(SelectedMessage.TextBody) ? SelectedMessage.HtmlBody : SelectedMessage.TextBody)</pre>
+					</div>
+				</div>
+			}
+		</section>
+	</section>
+</div>
+
+@code {
+	private readonly MailConnectionRequest Connection = new()
+	{
+		Host = "imap.1und1.de", // "outlook.office365.com",
+		Port = 993,
+		UseSsl = true,
+		UseOAuth2 = false
+	};
+
+	private string ApiBaseUrl = "http://localhost:5253/";
+	private string StatusMessage = "Enter your mailbox settings to begin.";
+	private string SelectedFolderName = "INBOX";
+	private string MoveFolderName = "Archive";
+	private bool IsBusy;
+	private IReadOnlyList<MailFolderDto> Folders = Array.Empty<MailFolderDto>();
+	private IReadOnlyList<MailMessageSummaryDto> Messages = Array.Empty<MailMessageSummaryDto>();
+	private MailMessageDetailDto? SelectedMessage;
+	private uint? SelectedMessageId;
+
+	protected override async Task OnInitializedAsync()
+	{
+		await Task.CompletedTask;
+	}
+
+	private async Task LoadFoldersAsync()
+	{
+		await RunBusyAsync(async () =>
+		{
+			MailApi.ApiBaseUrl = ApiBaseUrl;
+			Folders = await MailApi.GetFoldersAsync(Connection);
+			SelectedFolderName = Folders.FirstOrDefault()?.Name ?? "INBOX";
+			await LoadMessagesInternalAsync(SelectedFolderName);
+			StatusMessage = $"Loaded {Folders.Count} folder(s).";
+		});
+	}
+
+	private async Task ReloadMessagesAsync()
+	{
+		if (string.IsNullOrWhiteSpace(SelectedFolderName))
+		{
+			return;
+		}
+
+		await RunBusyAsync(async () =>
+		{
+			MailApi.ApiBaseUrl = ApiBaseUrl;
+			await LoadMessagesInternalAsync(SelectedFolderName);
+			StatusMessage = $"Refreshed {SelectedFolderName}.";
+		});
+	}
+
+	private async Task SelectFolderAsync(string folderName)
+	{
+		SelectedFolderName = folderName;
+		await ReloadMessagesAsync();
+	}
+
+	private async Task LoadMessagesInternalAsync(string folderName)
+	{
+		var messages = await MailApi.GetMessagesAsync(new MailFolderQueryRequest
+		{
+			Connection = Connection,
+			FolderName = folderName,
+			Take = 50
+		});
+
+		Messages = messages;
+		SelectedMessage = null;
+		SelectedMessageId = null;
+
+		if (messages.Count > 0)
+		{
+			await SelectMessageAsync(messages[0]);
+		}
+	}
+
+	private async Task SelectMessageAsync(MailMessageSummaryDto message)
+	{
+		SelectedMessageId = message.UniqueId;
+		SelectedFolderName = message.FolderName;
+		MailApi.ApiBaseUrl = ApiBaseUrl;
+		SelectedMessage = await MailApi.GetMessageAsync(new MailMessageLookupRequest
+		{
+			Connection = Connection,
+			FolderName = message.FolderName,
+			UniqueId = message.UniqueId
+		});
+	}
+
+	private async Task MarkReadAsync(MailMessageSummaryDto message)
+	{
+		await RunBusyAsync(async () =>
+		{
+			MailApi.ApiBaseUrl = ApiBaseUrl;
+			await MailApi.MarkAsReadAsync(new MailMessageLookupRequest
+			{
+				Connection = Connection,
+				FolderName = message.FolderName,
+				UniqueId = message.UniqueId
+			});
+
+			StatusMessage = $"Marked message {message.UniqueId} as read.";
+			await LoadMessagesInternalAsync(SelectedFolderName);
+		});
+	}
+
+	private async Task MarkUnreadAsync(MailMessageSummaryDto message)
+	{
+		await RunBusyAsync(async () =>
+		{
+			MailApi.ApiBaseUrl = ApiBaseUrl;
+			await MailApi.MarkAsUnreadAsync(new MailMessageLookupRequest
+			{
+				Connection = Connection,
+				FolderName = message.FolderName,
+				UniqueId = message.UniqueId
+			});
+
+			StatusMessage = $"Marked message {message.UniqueId} as unread.";
+			await LoadMessagesInternalAsync(SelectedFolderName);
+		});
+	}
+
+	private async Task DeleteAsync(MailMessageSummaryDto message)
+	{
+		await RunBusyAsync(async () =>
+		{
+			MailApi.ApiBaseUrl = ApiBaseUrl;
+			await MailApi.DeleteAsync(new MailMessageLookupRequest
+			{
+				Connection = Connection,
+				FolderName = message.FolderName,
+				UniqueId = message.UniqueId
+			});
+
+			StatusMessage = $"Deleted message {message.UniqueId}.";
+			await LoadMessagesInternalAsync(SelectedFolderName);
+		});
+	}
+
+	private async Task MoveSelectedAsync()
+	{
+		if (SelectedMessage is null || string.IsNullOrWhiteSpace(MoveFolderName))
+		{
+			return;
+		}
+
+		await RunBusyAsync(async () =>
+		{
+			MailApi.ApiBaseUrl = ApiBaseUrl;
+			await MailApi.MoveAsync(new MailMoveMessageRequest
+			{
+				Connection = Connection,
+				SourceFolderName = SelectedMessage.FolderName,
+				DestinationFolderName = MoveFolderName,
+				UniqueId = SelectedMessage.UniqueId
+			});
+
+			StatusMessage = $"Moved message {SelectedMessage.UniqueId} to {MoveFolderName}.";
+			await LoadMessagesInternalAsync(SelectedFolderName);
+		});
+	}
+
+	private async Task RunBusyAsync(Func<Task> action)
+	{
+		if (IsBusy)
+		{
+			return;
+		}
+
+		IsBusy = true;
+		try
+		{
+			await action();
+		}
+		catch (Exception ex)
+		{
+			StatusMessage = ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
+		}
+	}
+
+	private static string FormatDate(DateTimeOffset? dateTimeOffset)
+	{
+		return dateTimeOffset?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "n/a";
+	}
+}
