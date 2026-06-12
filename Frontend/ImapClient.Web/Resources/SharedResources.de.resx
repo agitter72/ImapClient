@@ -169,6 +169,6 @@
     <value>Fehler</value>
   </data>
   <data name="AppTitle" xml:space="preserve">
-    <value>Imap Client für Blazor Webapps</value>
+    <value>Der Imap Client für Blazor Webapps</value>
   </data>
 </root>
