@@ -9,7 +9,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// ⚠️ ADD THIS LINE - This is required for IStringLocalizer to work!
+// Add controllers for culture endpoint
+builder.Services.AddControllers();
+
 builder.Services.AddLocalization();
 builder.Services.Configure<MailApiOptions>(builder.Configuration.GetSection("MailApi"));
 builder.Services.AddHttpClient<MailApiClient>();
@@ -21,7 +23,7 @@ var app = builder.Build();
 var supportedCultures = new[] { new CultureInfo("en"), new CultureInfo("de") };
 app.UseRequestLocalization(new RequestLocalizationOptions
 {
-    DefaultRequestCulture = new RequestCulture("en"),
+    DefaultRequestCulture = new RequestCulture("de"),
     SupportedCultures = supportedCultures,
     SupportedUICultures = supportedCultures,
     RequestCultureProviders = new List<IRequestCultureProvider>
@@ -41,6 +43,7 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+app.MapControllers(); // Add this for culture controller
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

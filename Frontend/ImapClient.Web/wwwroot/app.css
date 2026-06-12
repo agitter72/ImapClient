@@ -77,6 +77,50 @@ button {
     padding-bottom: 28px;
 }
 
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.culture-selector {
+    position: relative;
+}
+
+    .culture-selector select {
+        appearance: none;
+        padding: 10px 36px 10px 14px;
+        border-radius: 999px;
+        background: rgba(129, 211, 255, 0.08);
+        border: 1px solid rgba(129, 211, 255, 0.14);
+        color: #81d3ff;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        outline: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2381d3ff' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+    }
+
+        .culture-selector select:hover {
+            background: rgba(129, 211, 255, 0.12);
+            border-color: rgba(129, 211, 255, 0.24);
+            box-shadow: 0 4px 12px rgba(129, 211, 255, 0.1);
+        }
+
+        .culture-selector select:focus {
+            background: rgba(129, 211, 255, 0.15);
+            border-color: rgba(129, 211, 255, 0.35);
+            box-shadow: 0 4px 16px rgba(129, 211, 255, 0.15);
+        }
+
+        .culture-selector select option {
+            background: #0d1626;
+            color: #e6edf7;
+            padding: 8px;
+        }
+
 .mail-shell {
     display: grid;
     gap: 20px;
@@ -420,3 +464,4 @@ button {
         align-items: stretch;
     }
 }
+

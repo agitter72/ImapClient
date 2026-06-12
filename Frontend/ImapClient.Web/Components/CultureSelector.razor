@@ -1,25 +1,33 @@
 @using System.Globalization
 @inject NavigationManager Navigation
+@rendermode InteractiveServer
 
 <div class="culture-selector">
     <select @onchange="OnCultureChanged" value="@selectedCulture">
-        <option value="en">English</option>
-        <option value="de">Deutsch</option>
+        @foreach (var culture in supportedCultures)
+        {
+            <option value="@culture.TwoLetterISOLanguageName">
+                @culture.NativeName
+            </option>
+        }
     </select>
 </div>
 
 @code {
     private string selectedCulture = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
 
+    private readonly CultureInfo[] supportedCultures = new[]
+        {
+        new CultureInfo("en"),
+        new CultureInfo("de")
+    };
+
     private void OnCultureChanged(ChangeEventArgs e)
     {
         var culture = e.Value?.ToString() ?? "en";
-        selectedCulture = culture;
+        if (culture == selectedCulture) return;
 
-        var uri = new Uri(Navigation.Uri)
-                    .GetComponents(UriComponents.PathAndQuery, UriFormat.Unescaped);
-        var query = $"?culture={culture}";
-
-        Navigation.NavigateTo($"{uri}{query}", forceLoad: true);
+        var uri = new Uri(Navigation.Uri).PathAndQuery;
+        Navigation.NavigateTo($"/Culture/Set?culture={culture}&redirectUri={uri}", forceLoad: true);
     }
 }
