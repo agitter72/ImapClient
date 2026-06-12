@@ -1,12 +1,18 @@
-﻿@inherits LayoutComponentBase
+﻿@using ImapClient.Web.Resources
+@using Microsoft.Extensions.Localization
+@inherits LayoutComponentBase
+@inject IStringLocalizer<SharedResources> Localizer
 
 <div class="app-shell">
     <header class="app-header">
         <div>
             <p class="app-kicker">ImapClient</p>
-            <h1>Outlook 365 inbox command center</h1>
+            <h1>@Localizer["AppTitle"]</h1>
         </div>
-        <a class="header-link" href="https://learn.microsoft.com/aspnet/core/" target="_blank">Blazor docs</a>
+        <div class="header-actions">
+            <CultureSelector />
+            @* <a class="header-link" href="https://learn.microsoft.com/aspnet/core/" target="_blank">@Localizer["BlazorDocs"]</a> *@
+        </div>
     </header>
 
     <main class="app-content">
@@ -15,7 +21,7 @@
 </div>
 
 <div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
+    @Localizer["ErrorOccurred"]
+    <a href="." class="reload">@Localizer["Reload"]</a>
     <span class="dismiss">🗙</span>
 </div>

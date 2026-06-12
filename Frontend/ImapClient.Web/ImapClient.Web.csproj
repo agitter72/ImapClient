@@ -8,6 +8,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Remove="Resources\SharedResources.resx" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Resources\SharedResources.resx" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Shared\ImapClient.Contracts\ImapClient.Contracts.csproj" />
   </ItemGroup>
 
